@@ -1,7 +1,10 @@
 from kubernetes import client, config, watch
+import glob
 import os
-import sys
 import requests
+import shutil
+import sys
+import tempfile
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
@@ -9,6 +12,7 @@ from requests.adapters import HTTPAdapter
 def writeTextToFile(folder, filename, data):
     with open(folder +"/"+ filename, 'w') as f:
         f.write(data)
+        f.write("\n")
         f.close()
 
 
@@ -39,7 +43,8 @@ def removeFile(folder, filename):
         print("Error: %s file not found" % completeFile)
 
 
-def watchForChanges(label, targetFolder, url, method, payload, current):
+def watchForChanges(label, targetFolder, url, method, payload, current,
+                    concatFile):
     v1 = client.CoreV1Api()
     w = watch.Watch()
     stream = None
@@ -50,10 +55,16 @@ def watchForChanges(label, targetFolder, url, method, payload, current):
         stream = w.stream(v1.list_config_map_for_all_namespaces)
     else:
         stream = w.stream(v1.list_namespaced_config_map, namespace=namespace)
+
+    if concatFile:
+        realTargetFolder = targetFolder
+        targetFolder = tempfile.mkdtemp()
+
     for event in stream:
         metadata = event['object'].metadata
         if metadata.labels is None:
             continue
+
         print(f'Working on configmap {metadata.namespace}/{metadata.name}')
         if label in event['object'].metadata.labels.keys():
             print("Configmap with label found")
@@ -61,6 +72,7 @@ def watchForChanges(label, targetFolder, url, method, payload, current):
             if dataMap is None:
                 print("Configmap does not have data.")
                 continue
+
             eventType = event['type']
             for filename in dataMap.keys():
                 print("File in configmap %s %s" % (filename, eventType))
@@ -73,6 +85,11 @@ def watchForChanges(label, targetFolder, url, method, payload, current):
                     if url is not None:
                         request(url, method, payload)
 
+            if concatFile:
+                with open(realTargetFolder+'/'+concatFile, 'w') as outfile:
+                    for sourcefile in glob.glob(targetFolder+'/*'):
+                        with open(sourcefile, 'r') as infile:
+                            shutil.copyfileobj(infile, outfile)
 
 def main():
     print("Starting config map collector")
@@ -85,6 +102,10 @@ def main():
         print("Should have added FOLDER as environment variable! Exit")
         return -1
 
+    concatFile = os.getenv('CONCAT')
+    if concatFile is not None:
+        print("Concat given, combining all changes into a single file!")
+
     method = os.getenv('REQ_METHOD')
     url = os.getenv('REQ_URL')
     payload = os.getenv('REQ_PAYLOAD')
@@ -92,7 +113,8 @@ def main():
     config.load_incluster_config()
     print("Config for cluster api loaded...")
     namespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
-    watchForChanges(label, targetFolder, url, method, payload, namespace)
+    watchForChanges(label, targetFolder, url, method, payload, namespace,
+                    concatFile)
 
 
 if __name__ == '__main__':

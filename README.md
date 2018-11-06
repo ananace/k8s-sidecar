@@ -20,6 +20,7 @@ By adding additional env variables the container can send a html request to spec
 - Extract files from config maps
 - Filter based on label
 - Update/Delete on change of configmap
+- Concatenate into a single file
 
 # Usage
 
@@ -35,6 +36,11 @@ Example for a simple deployment can be found in `example.yaml`. Depending on the
 - `FOLDER`
   - description: Folder where the files should be placed
   - required: true
+  - type: string
+
+- `CONCAT`
+  - description: File to concatenate result into
+  - required: false
   - type: string
 
 - `NAMESPACE`
