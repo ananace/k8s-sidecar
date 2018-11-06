@@ -43,6 +43,12 @@ Example for a simple deployment can be found in `example.yaml`. Depending on the
   - required: false
   - type: string
 
+- `CONCAT_HEADER`
+  - description: Prepend source file as a header for each concat, prefixed with the given string
+                 (a suitable comment character is recommended)
+  - required: false
+  - type: string
+
 - `NAMESPACE`
   - description: If specified, the sidecar will search for config-maps inside this namespace. Otherwise the namespace in which the sidecar is running will be used. It's also possible to specify `ALL` to search in all namespaces.
   - required: false

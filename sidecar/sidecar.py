@@ -44,7 +44,7 @@ def removeFile(folder, filename):
 
 
 def watchForChanges(label, targetFolder, url, method, payload, current,
-                    concatFile):
+                    concatFile, concatHeader):
     v1 = client.CoreV1Api()
     w = watch.Watch()
     stream = None
@@ -88,6 +88,8 @@ def watchForChanges(label, targetFolder, url, method, payload, current,
             if concatFile:
                 with open(realTargetFolder+'/'+concatFile, 'w') as outfile:
                     for sourcefile in glob.glob(targetFolder+'/*'):
+                        if concatHeader is not None:
+                            outfile.write('\n'+concatHeader + ' ' + infile '\n'
                         with open(sourcefile, 'r') as infile:
                             shutil.copyfileobj(infile, outfile)
 
@@ -95,16 +97,20 @@ def main():
     print("Starting config map collector")
     label = os.getenv('LABEL')
     if label is None:
-        print("Should have added LABEL as environment variable! Exit")
+        print("Missing LABEL as environment variable! Exit")
         return -1
     targetFolder = os.getenv('FOLDER')
     if targetFolder is None:
-        print("Should have added FOLDER as environment variable! Exit")
+        print("Missing FOLDER as environment variable! Exit")
         return -1
 
     concatFile = os.getenv('CONCAT')
     if concatFile is not None:
         print("Concat given, combining all changes into a single file!")
+
+    concatHeader = os.getenv('CONCAT_HEADER')
+    if concatHeader is not None and concatFile is None:
+        print("Concat header specified but not concatenating files, this is a noop")
 
     method = os.getenv('REQ_METHOD')
     url = os.getenv('REQ_URL')
@@ -114,7 +120,7 @@ def main():
     print("Config for cluster api loaded...")
     namespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
     watchForChanges(label, targetFolder, url, method, payload, namespace,
-                    concatFile)
+                    concatFile, concatHeader)
 
 
 if __name__ == '__main__':
