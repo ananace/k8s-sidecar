@@ -89,7 +89,7 @@ def watchForChanges(label, targetFolder, url, method, payload, current,
                 with open(realTargetFolder+'/'+concatFile, 'w') as outfile:
                     for sourcefile in glob.glob(targetFolder+'/*'):
                         if concatHeader is not None:
-                            outfile.write('\n'+concatHeader+' '+infile+'\n')
+                            outfile.write('\n'+concatHeader+' '+sourcefile+'\n')
                         with open(sourcefile, 'r') as infile:
                             shutil.copyfileobj(infile, outfile)
 
