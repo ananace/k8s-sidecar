@@ -65,6 +65,7 @@ def watchForChanges(label, targetFolder, url, method, payload, current,
         if metadata.labels is None:
             continue
 
+        update = False
         print(f'Working on configmap {metadata.namespace}/{metadata.name}')
         if label in event['object'].metadata.labels.keys():
             print("Configmap with label found")
@@ -78,12 +79,9 @@ def watchForChanges(label, targetFolder, url, method, payload, current,
                 print("File in configmap %s %s" % (filename, eventType))
                 if (eventType == "ADDED") or (eventType == "MODIFIED"):
                     writeTextToFile(targetFolder, filename, dataMap[filename])
-                    if url is not None:
-                        request(url, method, payload)
                 else:
                     removeFile(targetFolder, filename)
-                    if url is not None:
-                        request(url, method, payload)
+                update = True
 
             if concatFile:
                 with open(realTargetFolder+'/'+concatFile, 'w') as outfile:
@@ -97,6 +95,9 @@ def watchForChanges(label, targetFolder, url, method, payload, current,
                             outfile.write('\n'+concatHeader+' '+sourcedefinition+'\n')
                         with open(sourcefile, 'r') as infile:
                             shutil.copyfileobj(infile, outfile)
+
+        if update and url is not None:
+            request(url, method, payload)
 
 def main():
     print("Starting config map collector")
