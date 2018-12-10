@@ -84,15 +84,12 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
     return update
 
 
-def watchForChanges(label, targetFolder, url, method, payload, current,
+def watchForChanges(label, targetFolder, url, method, payload, namespace,
                     concatFile, concatHeader, considerateUpdate):
     v1 = client.CoreV1Api()
     w = watch.Watch()
     stream = None
-    namespace = os.getenv("NAMESPACE")
-    if namespace is None:
-        stream = w.stream(v1.list_namespaced_config_map, namespace=current)
-    elif namespace == "ALL":
+    if namespace == "ALL":
         stream = w.stream(v1.list_config_map_for_all_namespaces)
     else:
         stream = w.stream(v1.list_namespaced_config_map, namespace=namespace)
@@ -142,6 +139,8 @@ def main():
         print("Missing FOLDER as environment variable! Exit")
         return -1
 
+    namespace = os.getenv('NAMESPACE', open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read())
+
     concatFile = os.getenv('CONCAT')
     if concatFile is not None:
         print("Concat given, combining all changes into a single file!")
@@ -160,7 +159,6 @@ def main():
 
     config.load_incluster_config()
     print("Config for cluster api loaded...")
-    namespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
     watchForChanges(label, targetFolder, url, method, payload, namespace,
                     concatFile, concatHeader, considerateUpdate)
 
