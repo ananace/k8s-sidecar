@@ -20,19 +20,33 @@ spec:
         image: bash:4.4.19
         volumeMounts:
         - name: shared-volume
-          mountPath: /tmp/
+          mountPath: /sidecar/
         command: ["watch"]
-        args: ["ls", "/tmp/"]
+        args: ["ls", "/sidecar/"]
       - name: sidecar
-        image: kiwigrid/k8s-sidecar:latest
+        image: ananace/k8s-sidecar:latest
         volumeMounts:
         - name: shared-volume
-          mountPath: /tmp/
+          mountPath: /sidecar/
         env:
         - name: LABEL
-          value: "findme"
+          value: "com.github.ananace/FindMe"
         - name: FOLDER
-          value: /tmp/
+          value: /sidecar/
+      - name: concat-sidecar
+        image: ananace/k8s-sidecar:latest
+        volumeMounts:
+        - name: shared-volume
+          mountPath: /sidecar/
+        env:
+        - name: LABEL
+          value: "com.github.ananace/FindMe"
+        - name: FOLDER
+          value: /sidecar/
+        - name: CONCAT
+          value: concatenated.ini
+        - name: CONCAT_HEADER
+          value: '#'
       volumes:
       - name: shared-volume
         emptyDir: {}
@@ -42,10 +56,12 @@ kind: ConfigMap
 metadata:
   name: sample-configmap
   labels:
-    findme: "yea"
+    com.github.ananace/FindMe: ""
 data:
   hello.world: |-
      Hello World!
+  goodbye.world: |-
+     Goodbye World!
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

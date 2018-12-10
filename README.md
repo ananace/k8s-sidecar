@@ -1,6 +1,6 @@
 
-[![Docker Automated build](https://img.shields.io/docker/automated/kiwigrid/k8s-sidecar.svg)](https://hub.docker.com/r/kiwigrid/k8s-sidecar/)
-[![Docker Build Status](https://img.shields.io/docker/build/kiwigrid/k8s-sidecar.svg)](https://hub.docker.com/r/kiwigrid/k8s-sidecar/)
+[![Docker Automated build](https://img.shields.io/docker/automated/ananace/k8s-sidecar.svg)](https://hub.docker.com/r/ananace/k8s-sidecar/)
+[![Docker Build Status](https://img.shields.io/docker/build/ananace/k8s-sidecar.svg)](https://hub.docker.com/r/ananace/k8s-sidecar/)
 
 # What?
 
@@ -29,23 +29,22 @@ Example for a simple deployment can be found in `example.yaml`. Depending on the
 ## Configuration Environment Variables
 
 - `LABEL` 
-  - description: Label that should be used for filtering
+  - description: Label that should be used for filtering.
   - required: true
   - type: string
 
 - `FOLDER`
-  - description: Folder where the files should be placed
+  - description: Folder where the files should be placed.
   - required: true
   - type: string
 
 - `CONCAT`
-  - description: File to concatenate result into
+  - description: File to concatenate result into.
   - required: false
   - type: string
 
 - `CONCAT_HEADER`
-  - description: Prepend source file as a header for each concat, prefixed with the given string
-                 (a suitable comment character is recommended)
+  - description: Prepend source file as a header for each concat, prefixed with the given string. (a suitable comment character is recommended)
   - required: false
   - type: string
 
@@ -61,16 +60,16 @@ Example for a simple deployment can be found in `example.yaml`. Depending on the
   - type: boolean
 
 - `REQ_URL`
-  - description: URL to which send a request after a configmap got reloaded
+  - description: URL to which send a request after a configmap got reloaded.
   - required: false
   - type: URI
 
 - `REQ_METHOD`
-  - description: Request method GET(default) or POST
+  - description: Request method GET(default) or POST.
   - required: false
   - type: string
 
 - `REQ_PAYLOAD`
-  - description: If you use POST you can also provide json payload
+  - description: If you use POST you can also provide json payload.
   - required: false
   - type: json
