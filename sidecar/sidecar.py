@@ -9,6 +9,10 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
 
+def str2bool(v):
+  return v.lower() in ("yes", "true", "y", "t", "1")
+
+
 def writeTextToFile(folder, filename, data):
     with open(folder +"/"+ filename, 'w') as f:
         f.write(data)
@@ -43,8 +47,45 @@ def removeFile(folder, filename):
         print("Error: %s file not found" % completeFile)
 
 
+def applyChanges(targetFolder, eventType, dataMap, metadata,
+                 realTargetFolder = None, concatFile = None,
+                 concatHeader = None, hashMap = None):
+    update = False
+
+    for filename in dataMap.keys():
+        print("Configmap entry %s/%s %s" % (metadata.namespace, metadata.name, eventType))
+        if (eventType == "ADDED") or (eventType == "MODIFIED"):
+            if hashMap is not None:
+                dataHash = hash(dataMap[filename])
+                if hashMap.get(filename) == dataHash:
+                    print("(Data unchanged, ignoring)")
+                    continue
+                hashMap[filename] = dataHash
+            writeTextToFile(targetFolder, filename, dataMap[filename])
+        else:
+            removeFile(targetFolder, filename)
+            if hashMap is not None and filename in hashMap:
+                del hashMap[filename]
+        update = True
+
+    if update and concatFile:
+        with open(realTargetFolder+'/'+concatFile, 'w') as outfile:
+            for sourcefile in glob.glob(targetFolder+'/*'):
+                if concatHeader is not None:
+                    sourcedefinition = '%s/%s:%s' % (
+                        metadata.namespace,
+                        metadata.name,
+                        os.path.basename(sourcefile)
+                    )
+                    outfile.write('\n'+concatHeader+' '+sourcedefinition+'\n')
+                with open(sourcefile, 'r') as infile:
+                    shutil.copyfileobj(infile, outfile)
+
+    return update
+
+
 def watchForChanges(label, targetFolder, url, method, payload, current,
-                    concatFile, concatHeader):
+                    concatFile, concatHeader, considerateUpdate):
     v1 = client.CoreV1Api()
     w = watch.Watch()
     stream = None
@@ -59,6 +100,10 @@ def watchForChanges(label, targetFolder, url, method, payload, current,
     if concatFile:
         realTargetFolder = targetFolder
         targetFolder = tempfile.mkdtemp()
+
+    hashMap = None
+    if considerateUpdate:
+        hashMap = dict()
 
     for event in stream:
         metadata = event['object'].metadata
@@ -75,26 +120,13 @@ def watchForChanges(label, targetFolder, url, method, payload, current,
                 continue
 
             eventType = event['type']
-            for filename in dataMap.keys():
-                print("File in configmap %s %s" % (filename, eventType))
-                if (eventType == "ADDED") or (eventType == "MODIFIED"):
-                    writeTextToFile(targetFolder, filename, dataMap[filename])
-                else:
-                    removeFile(targetFolder, filename)
+            if applyChanges(targetFolder, eventType, dataMap,
+                            metadata=event['object'].metadata,
+                            realTargetFolder=realTargetFolder,
+                            concatFile=concatFile,
+                            concatHeader=concatHeader,
+                            hashMap=hashMap):
                 update = True
-
-            if concatFile:
-                with open(realTargetFolder+'/'+concatFile, 'w') as outfile:
-                    for sourcefile in glob.glob(targetFolder+'/*'):
-                        if concatHeader is not None:
-                            sourcedefinition = '%s/%s:%s' % (
-                                event['object'].metadata.namespace,
-                                event['object'].metadata.name,
-                                os.path.basename(sourcefile)
-                            )
-                            outfile.write('\n'+concatHeader+' '+sourcedefinition+'\n')
-                        with open(sourcefile, 'r') as infile:
-                            shutil.copyfileobj(infile, outfile)
 
         if update and url is not None:
             request(url, method, payload)
@@ -118,6 +150,10 @@ def main():
     if concatHeader is not None and concatFile is None:
         print("Concat header specified but not concatenating files, this is a noop")
 
+    considerateUpdate = str2bool(os.getenv('CONSIDERATE_UPDATE', '1'))
+    if considerateUpdate:
+        print("Using considerate update")
+
     method = os.getenv('REQ_METHOD')
     url = os.getenv('REQ_URL')
     payload = os.getenv('REQ_PAYLOAD')
@@ -126,7 +162,7 @@ def main():
     print("Config for cluster api loaded...")
     namespace = open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read()
     watchForChanges(label, targetFolder, url, method, payload, namespace,
-                    concatFile, concatHeader)
+                    concatFile, concatHeader, considerateUpdate)
 
 
 if __name__ == '__main__':
