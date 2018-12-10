@@ -1,10 +1,7 @@
---- a/watch/watch.py      2018-11-06 20:41:11.000000000 +0000
-+++ b/watch/watch.py      2018-12-10 11:56:47.558309526 +0000
-@@ -81,15 +81,18 @@
-         js['raw_object'] = js['object']
-         if return_type:
+--- a/watch/watch.py      2018-12-10 14:37:19.999580768 +0000
++++ b/watch/watch.py      2018-12-10 14:38:36.104930476 +0000
+@@ -83,13 +83,21 @@
              obj = SimpleNamespace(data=json.dumps(js['raw_object']))
-+            version = None
              js['object'] = self._api_client.deserialize(obj, return_type)
              if hasattr(js['object'], 'metadata'):
 -                self.resource_version = js['object'].metadata.resource_version
@@ -16,8 +13,14 @@
 -                self.resource_version = js['object']['metadata'][
 +                version = js['object']['metadata'][
                      'resourceVersion']
-+            if version is not None:
-+                self.resource_version = version
++        elif (isinstance(js['object'], dict) and 'metadata' in js['object']
++              and 'resourceVersion' in js['object']['metadata']):
++            version = js['object']['metadata'][
++                'resourceVersion']
++            
++        if version is not None and version.lower() != 'none':
++            self.resource_version = version
++
          return js
  
      def stream(self, func, *args, **kwargs):
