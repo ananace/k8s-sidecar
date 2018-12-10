@@ -53,7 +53,8 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
     update = False
 
     for filename in dataMap.keys():
-        print("Configmap entry %s/%s %s" % (metadata.namespace, metadata.name, eventType))
+        print("Configmap entry %s/%s:%s %s" % (metadata.namespace, metadata.name,
+                                               filename, eventType))
         if (eventType == "ADDED") or (eventType == "MODIFIED"):
             if hashMap is not None:
                 dataHash = hash(dataMap[filename])
