@@ -33,15 +33,17 @@ def request(url, method, payload):
             status_forcelist = [ 500, 502, 503, 504 ])
     r.mount('http://', HTTPAdapter(max_retries=retries))
     r.mount('https://', HTTPAdapter(max_retries=retries))
+    res = None
+
     if url is None:
-        print("No url provided. Doing nothing.")
-        # If method is not provided use GET as default
+        return
+    # If method is not provided use GET as default
     elif method == "GET" or method is None:
         res = r.get("%s" % url, timeout=10)
-        print ("%s request sent to %s. Response: %d %s" % (method, url, res.status_code, res.reason))
     elif method == "POST":
         res = r.post("%s" % url, json=payload, timeout=10)
-        print ("%s request sent to %s. Response: %d %s" % (method, url, res.status_code, res.reason))
+
+    print("%s %s request sent to %s. Response: %d %s" % (time(), method, url, res.status_code, res.reason))
 
 
 def removeFile(folder, filename):
@@ -58,12 +60,12 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
     update = False
 
     for filename in dataMap.keys():
-        print("Configmap entry %s/%s %s" % (metadata.namespace, metadata.name, eventType))
+        print('- %s' % filename)
         if (eventType == "ADDED") or (eventType == "MODIFIED"):
             if hashMap is not None:
                 dataHash = hash(dataMap[filename])
                 if hashMap.get(filename) == dataHash:
-                    print("(Data unchanged, ignoring)")
+                    print('(Data unchanged, ignoring)')
                     continue
                 hashMap[filename] = dataHash
             writeTextToFile(targetFolder, filename, dataMap[filename])
@@ -171,22 +173,23 @@ def main():
     print("Starting config map collector")
     label = os.getenv('LABEL')
     if label is None:
-        print("Missing LABEL as environment variable! Exit")
+        print("ERROR: Missing LABEL as environment variable!")
         return -1
     targetFolder = os.getenv('FOLDER')
     if targetFolder is None:
-        print("Missing FOLDER as environment variable! Exit")
+        print("ERROR: Missing FOLDER as environment variable!")
         return -1
 
     namespace = os.getenv('NAMESPACE', open("/var/run/secrets/kubernetes.io/serviceaccount/namespace").read())
+    print("Using namespace %s." % namespace)
 
     concatFile = os.getenv('CONCAT')
     if concatFile is not None:
-        print("Concat given, combining all changes into a single file!")
+        print("Concat given, combining all changes into a single file.")
 
     concatHeader = os.getenv('CONCAT_HEADER')
     if concatHeader is not None and concatFile is None:
-        print("Concat header specified but not concatenating files, this is a noop")
+        print("Concat header specified but not concatenating files?")
 
     considerateUpdate = str2bool(os.getenv('CONSIDERATE_UPDATE', '1'))
     if considerateUpdate:
@@ -202,7 +205,7 @@ def main():
     payload = os.getenv('REQ_PAYLOAD')
 
     config.load_incluster_config()
-    print("Config for cluster api loaded...")
+    print("Config for cluster api loaded.\n")
     watchForChanges(label, targetFolder, url, method, payload, namespace,
                     concatFile, concatHeader, considerateUpdate, timeout)
 
