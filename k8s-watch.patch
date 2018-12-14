@@ -1,26 +1,46 @@
---- a/watch/watch.py      2018-12-10 14:37:19.999580768 +0000
-+++ b/watch/watch.py      2018-12-10 14:38:36.104930476 +0000
-@@ -83,13 +83,21 @@
-             obj = SimpleNamespace(data=json.dumps(js['raw_object']))
-             js['object'] = self._api_client.deserialize(obj, return_type)
-             if hasattr(js['object'], 'metadata'):
--                self.resource_version = js['object'].metadata.resource_version
-+                version = js['object'].metadata.resource_version
-             # For custom objects that we don't have model defined, json
-             # deserialization results in dictionary
-             elif (isinstance(js['object'], dict) and 'metadata' in js['object']
-                   and 'resourceVersion' in js['object']['metadata']):
--                self.resource_version = js['object']['metadata'][
-+                version = js['object']['metadata'][
-                     'resourceVersion']
-+        elif (isinstance(js['object'], dict) and 'metadata' in js['object']
-+              and 'resourceVersion' in js['object']['metadata']):
-+            version = js['object']['metadata'][
-+                'resourceVersion']
-+            
-+        if version is not None and version.lower() != 'none':
-+            self.resource_version = version
-+
-         return js
+--- a/watch/watch.py	2018-12-14 08:15:10.574488606 +0100
++++ b/watch/watch.py	2018-12-14 08:30:41.285017302 +0100
+@@ -14,6 +14,7 @@
  
-     def stream(self, func, *args, **kwargs):
+ import json
+ import pydoc
++import re
+ 
+ from kubernetes import client
+ 
+@@ -123,12 +124,27 @@
+         kwargs['watch'] = True
+         kwargs['_preload_content'] = False
+ 
++        reloading = None
+         timeouts = ('timeout_seconds' in kwargs)
+         while True:
++            reloading = False
+             resp = func(*args, **kwargs)
+             try:
+                 for line in iter_resp_lines(resp):
+-                    yield self.unmarshal_event(line, return_type)
++                    ev = self.unmarshal_event(line, return_type)
++                    raw = ev['raw_object']
++
++                    if 'Status' in raw.get('kind', '') and\
++                       'Failure' in raw.get('status', '') and\
++                       'Gone' in raw.get('reason', ''):
++                        new_ver = re.search("\((\d+)\)",
++                                            raw.get('message',''))
++                        if new_ver and new_ver.group(1):
++                            self.resource_version = int(new_ver.group(1)) + 1
++                            reloading = True
++                            break
++
++                    yield ev
+                     if self._stop:
+                         break
+             finally:
+@@ -136,5 +156,5 @@
+                 resp.close()
+                 resp.release_conn()
+ 
+-            if timeouts or self._stop:
++            if (timeouts or self._stop) and not reloading:
+                 break

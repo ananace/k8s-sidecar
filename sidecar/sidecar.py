@@ -1,4 +1,5 @@
 from kubernetes import client, config, watch
+import datetime
 import glob
 import os
 import requests
@@ -7,6 +8,10 @@ import sys
 import tempfile
 from requests.packages.urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
+
+
+def time():
+  return datetime.datetime.now().strftime("[%Y-%m-%d %H:%M]")
 
 
 def str2bool(v):
@@ -84,39 +89,35 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
     return update
 
 
-def watchForChanges(label, targetFolder, url, method, payload, namespace,
-                    concatFile, concatHeader, considerateUpdate):
-    v1 = client.CoreV1Api()
+def runWatch(func, label, targetFolder, realTargetFolder, url, method, payload,
+             concatFile, concatHeader, considerateUpdate, hashMap,
+             **kwargs):
     w = watch.Watch()
-    stream = None
-    if namespace == "ALL":
-        stream = w.stream(v1.list_config_map_for_all_namespaces)
+
+    if 'resource_version' in kwargs and kwargs['resource_version'] > 0:
+        print(f'{time()} Resuming watch for configmaps with resource version %s.' %
+              kwargs['resource_version'])
     else:
-        stream = w.stream(v1.list_namespaced_config_map, namespace=namespace)
+        if 'resource_version' in kwargs:
+            del kwargs['resource_version']
 
-    if concatFile:
-        realTargetFolder = targetFolder
-        targetFolder = tempfile.mkdtemp()
+        print(f'{time()} Starting watch for configmaps.')
 
-    hashMap = None
-    if considerateUpdate:
-        hashMap = dict()
-
-    for event in stream:
+    for event in w.stream(func, **kwargs):
         metadata = event['object'].metadata
         if metadata.labels is None:
             continue
 
         update = False
-        print(f'Working on configmap {metadata.namespace}/{metadata.name}')
         if label in event['object'].metadata.labels.keys():
-            print("Configmap with label found")
+            eventType = event['type']
+
+            print(f'{time()} {eventType} configmap {metadata.namespace}/{metadata.name}')
             dataMap=event['object'].data
             if dataMap is None:
-                print("Configmap does not have data.")
+                print('(Configmap does not have data, ignoring)')
                 continue
 
-            eventType = event['type']
             if applyChanges(targetFolder, eventType, dataMap,
                             metadata=event['object'].metadata,
                             realTargetFolder=realTargetFolder,
@@ -127,6 +128,44 @@ def watchForChanges(label, targetFolder, url, method, payload, namespace,
 
         if update and url is not None:
             request(url, method, payload)
+
+    return w.resource_version
+
+
+def watchForChanges(label, targetFolder, url, method, payload, namespace,
+                    concatFile, concatHeader, considerateUpdate, timeout):
+    v1 = client.CoreV1Api()
+
+    hashMap = None
+    if considerateUpdate:
+        hashMap = dict()
+
+    stream = None
+    if concatFile:
+        realTargetFolder = targetFolder
+        targetFolder = tempfile.mkdtemp()
+
+    func = None
+    kwargs = dict()
+    if namespace == "ALL":
+        func = v1.list_config_map_for_all_namespaces
+    else:
+        func = v1.list_namespaced_config_map
+        kwargs['namespace'] = namespace
+
+    if timeout is not None:
+      kwargs['timeout_seconds'] = timeout
+
+    while True:
+      version = runWatch(
+        func, label, targetFolder, realTargetFolder, url, method, payload,
+        concatFile, concatHeader, considerateUpdate, hashMap, **kwargs
+      )
+      if version is not None:
+        kwargs['resource_version'] = int(version)
+
+      if timeout is None:
+        break
 
 def main():
     print("Starting config map collector")
@@ -151,7 +190,12 @@ def main():
 
     considerateUpdate = str2bool(os.getenv('CONSIDERATE_UPDATE', '1'))
     if considerateUpdate:
-        print("Using considerate update")
+        print("Using considerate update.")
+
+    timeout = os.getenv('TIMEOUT')
+    if timeout is not None:
+        timeout = int(timeout)
+        print("Using timeout of %d seconds." % timeout)
 
     method = os.getenv('REQ_METHOD')
     url = os.getenv('REQ_URL')
@@ -160,7 +204,7 @@ def main():
     config.load_incluster_config()
     print("Config for cluster api loaded...")
     watchForChanges(label, targetFolder, url, method, payload, namespace,
-                    concatFile, concatHeader, considerateUpdate)
+                    concatFile, concatHeader, considerateUpdate, timeout)
 
 
 if __name__ == '__main__':

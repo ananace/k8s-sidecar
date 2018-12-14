@@ -59,6 +59,11 @@ Example for a simple deployment can be found in `example.yaml`. Depending on the
   - required false
   - type: boolean
 
+- `TIMEOUT`
+  - description: If specified, the sidecar will time out and restart its watches after the given amount of seconds.
+  - required false
+  - type: integer
+
 - `REQ_URL`
   - description: URL to which send a request after a configmap got reloaded.
   - required: false
