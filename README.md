@@ -54,10 +54,15 @@ Example for a simple deployment can be found in `example.yaml`. Depending on the
   - type: string
 
 - `CONSIDERATE_UPDATE`
-  - description: When specified, the sidecar will agressively cache data to attempt to avoid causing unnecessary updates or requests.
+  - description: When activated, the sidecar will agressively cache data to attempt to avoid causing unnecessary updates or requests.
   - default: true
   - required false
   - type: boolean
+
+- `TIMEOUT`
+  - description: If specified, the sidecar will time out and restart its watches after the given amount of seconds.
+  - required false
+  - type: integer
 
 - `REQ_URL`
   - description: URL to which send a request after a configmap got reloaded.
