@@ -18,8 +18,11 @@ def str2bool(v):
   return v.lower() in ("yes", "true", "y", "t", "1")
 
 
-def writeTextToFile(folder, filename, data):
+def writeTextToFile(folder, filename, data, header = None):
     with open(folder +"/"+ filename, 'w') as f:
+        if header is not None:
+            f.write(header)
+            f.write("\n")
         f.write(data)
         f.write("\n")
         f.close()
@@ -59,7 +62,24 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
                  concatHeader = None, hashMap = None):
     update = False
 
+    if concatFile:
+        curTargetFolder = targetFolder+'/'+metadata.namespace+'/'+metadata.name
+        if not os.path.exists(curTargetFolder):
+            os.makedirs(curTargetFolder)
+    else:
+        curTargetFolder = targetFolder
+
     for filename in dataMap.keys():
+        if concatFile and concatHeader is not None:
+            sourcedefinition = '%s/%s:%s' % (
+                metadata.namespace,
+                metadata.name,
+                filename
+            )
+            curConcatHeader = concatHeader+' '+sourcedefinition
+        else:
+            curConcatHeader = None
+
         hashKey = metadata.namespace + '/' + metadata.name + ':' + filename
         print('- %s' % filename)
         if (eventType == "ADDED") or (eventType == "MODIFIED"):
@@ -69,25 +89,22 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
                     print('(Data unchanged, ignoring)')
                     continue
                 hashMap[hashKey] = dataHash
-            writeTextToFile(targetFolder, filename, dataMap[filename])
+            writeTextToFile(curTargetFolder, filename, dataMap[filename],
+                            header=curConcatHeader)
         else:
-            removeFile(targetFolder, filename)
+            removeFile(curTargetFolder, filename)
             if hashMap is not None and hashKey in hashMap:
                 del hashMap[hashKey]
         update = True
 
     if update and concatFile:
         with open(realTargetFolder+'/'+concatFile, 'w') as outfile:
-            for sourcefile in glob.glob(targetFolder+'/*'):
-                if concatHeader is not None:
-                    sourcedefinition = '%s/%s:%s' % (
-                        metadata.namespace,
-                        metadata.name,
-                        os.path.basename(sourcefile)
-                    )
-                    outfile.write('\n'+concatHeader+' '+sourcedefinition+'\n')
+            for sourcefile in glob.iglob(targetFolder+'/**', recursive=True):
+                if not os.path.isfile(sourcefile):
+                    continue
                 with open(sourcefile, 'r') as infile:
                     shutil.copyfileobj(infile, outfile)
+                outfile.write("\n")
 
     return update
 
