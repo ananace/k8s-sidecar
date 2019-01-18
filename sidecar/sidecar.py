@@ -60,19 +60,20 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
     update = False
 
     for filename in dataMap.keys():
+        hashKey = metadata.namespace + '/' + metadata.name + ':' + filename
         print('- %s' % filename)
         if (eventType == "ADDED") or (eventType == "MODIFIED"):
             if hashMap is not None:
-                dataHash = hash(dataMap[filename])
-                if hashMap.get(filename) == dataHash:
+                dataHash = hash(dataMap[hashKey])
+                if hashMap.get(hashKey) == dataHash:
                     print('(Data unchanged, ignoring)')
                     continue
-                hashMap[filename] = dataHash
-            writeTextToFile(targetFolder, filename, dataMap[filename])
+                hashMap[hashKey] = dataHash
+            writeTextToFile(targetFolder, filename, dataMap[hashKey])
         else:
             removeFile(targetFolder, filename)
-            if hashMap is not None and filename in hashMap:
-                del hashMap[filename]
+            if hashMap is not None and hashKey in hashMap:
+                del hashMap[hashKey]
         update = True
 
     if update and concatFile:
