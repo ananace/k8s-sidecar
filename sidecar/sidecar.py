@@ -64,12 +64,12 @@ def applyChanges(targetFolder, eventType, dataMap, metadata,
         print('- %s' % filename)
         if (eventType == "ADDED") or (eventType == "MODIFIED"):
             if hashMap is not None:
-                dataHash = hash(dataMap[hashKey])
+                dataHash = hash(dataMap[filename])
                 if hashMap.get(hashKey) == dataHash:
                     print('(Data unchanged, ignoring)')
                     continue
                 hashMap[hashKey] = dataHash
-            writeTextToFile(targetFolder, filename, dataMap[hashKey])
+            writeTextToFile(targetFolder, filename, dataMap[filename])
         else:
             removeFile(targetFolder, filename)
             if hashMap is not None and hashKey in hashMap:
