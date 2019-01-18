@@ -144,8 +144,8 @@ def watchForChanges(label, targetFolder, url, method, payload, namespace,
         hashMap = dict()
 
     stream = None
+    realTargetFolder = targetFolder
     if concatFile:
-        realTargetFolder = targetFolder
         targetFolder = tempfile.mkdtemp()
 
     func = None
